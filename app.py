@@ -110,77 +110,150 @@
 #     st.pyplot(fig)
 
 
+# import streamlit as st
+# import pickle
+# import pandas as pd
+# import matplotlib.pyplot as plt
+# from sklearn.feature_extraction.text import TfidfVectorizer
+
+# # Load model and vectorizer
+# model = pickle.load(open("model.pkl", "rb"))
+# vectorizer = pickle.load(open("vectorizer.pkl", "rb"))
+
+# st.set_page_config(page_title="Animal Symptom Classifier", layout="centered")
+# st.title("🐾 AI for Animal Symptom Analysis")
+
+# st.markdown("Enter animal symptoms or clinical notes to get predictions, download structured data, and view analytics.")
+
+# # File upload for multiple inputs
+# st.write("### Upload a Text File (.txt) with Multiple Records")
+# uploaded_file = st.file_uploader("Choose a .txt file", type=["txt"])
+
+# input_texts = []
+
+# if uploaded_file is not None:
+#     input_texts = uploaded_file.read().decode("utf-8").splitlines()
+
+# # Manual text input
+# st.write("### Or Enter a Single Symptom / Note")
+# user_input = st.text_input("Enter symptom/clinical note here:")
+
+# if user_input:
+#     input_texts.append(user_input)
+
+# records = []
+
+# if st.button("Predict Conditions"):
+#     if not input_texts:
+#         st.warning("Please upload a file or enter text manually.")
+#     else:
+#         for text in input_texts:
+#             if text.strip():
+#                 X = vectorizer.transform([text])
+#                 prediction = model.predict(X)[0]
+#                 record = {
+#                     "Text": text,
+#                     "Predicted Condition": prediction,
+#                     "Record Type": "User Input" if text == user_input else "File Upload"
+#                 }
+#                 records.append(record)
+
+#         if records:
+#             # Convert to DataFrame
+#             df = pd.DataFrame(records)
+
+#             st.success("✅ Prediction Complete!")
+#             st.write("### Structured Data Table")
+#             st.dataframe(df)
+
+#             # Download button
+#             csv = df.to_csv(index=False)
+#             st.download_button(
+#                 label="📥 Download Structured Data as CSV",
+#                 data=csv,
+#                 file_name="structured_data.csv",
+#                 mime="text/csv"
+#             )
+
+#             # Bar chart for prediction count
+#             st.write("### 📊 Prediction Overview")
+#             chart_data = df["Predicted Condition"].value_counts()
+#             fig, ax = plt.subplots()
+#             chart_data.plot(kind="bar", color="skyblue", ax=ax)
+#             plt.xlabel("Predicted Condition")
+#             plt.ylabel("Count")
+#             plt.title("Distribution of Predicted Conditions")
+#             st.pyplot(fig)
+
+
 import streamlit as st
-import pickle
 import pandas as pd
+import joblib
 import matplotlib.pyplot as plt
-from sklearn.feature_extraction.text import TfidfVectorizer
 
-# Load model and vectorizer
-model = pickle.load(open("model.pkl", "rb"))
-vectorizer = pickle.load(open("vectorizer.pkl", "rb"))
+# Load the model and vectorizer
+model = joblib.load("model.pkl")
+vectorizer = joblib.load("vectorizer.pkl")
 
-st.set_page_config(page_title="Animal Symptom Classifier", layout="centered")
-st.title("🐾 AI for Animal Symptom Analysis")
+st.title("Pet Symptom Analyzer 🐾")
+st.write("Upload a text file or enter symptoms to get predicted condition, structured insights, and download the result.")
 
-st.markdown("Enter animal symptoms or clinical notes to get predictions, download structured data, and view analytics.")
+# --- Function to preprocess and predict ---
+def predict_condition(text_list):
+    vectors = vectorizer.transform(text_list)
+    predictions = model.predict(vectors)
+    return predictions
 
-# File upload for multiple inputs
-st.write("### Upload a Text File (.txt) with Multiple Records")
-uploaded_file = st.file_uploader("Choose a .txt file", type=["txt"])
+# --- Function to extract insights ---
+def generate_insights(df):
+    insights = df['Predicted Condition'].value_counts().reset_index()
+    insights.columns = ['Condition', 'Count']
+    return insights
 
-input_texts = []
+# --- Input Options ---
+input_mode = st.radio("Choose Input Type:", ("Enter Text", "Upload File"))
 
-if uploaded_file is not None:
-    input_texts = uploaded_file.read().decode("utf-8").splitlines()
+if input_mode == "Enter Text":
+    user_text = st.text_area("Enter pet symptoms here:")
+    if st.button("Predict"):
+        if user_text.strip():
+            pred = predict_condition([user_text])[0]
+            st.success(f"Predicted Condition: **{pred}**")
+            result_df = pd.DataFrame([{"Input Text": user_text, "Predicted Condition": pred}])
+            st.dataframe(result_df)
 
-# Manual text input
-st.write("### Or Enter a Single Symptom / Note")
-user_input = st.text_input("Enter symptom/clinical note here:")
+            st.subheader("📊 Actionable Insights")
+            st.write("Since it's only one entry, no chart is generated.")
+            csv = result_df.to_csv(index=False).encode('utf-8')
+            st.download_button("Download CSV", data=csv, file_name="prediction_result.csv", mime="text/csv")
+        else:
+            st.warning("Please enter some text.")
 
-if user_input:
-    input_texts.append(user_input)
+else:
+    uploaded_file = st.file_uploader("Upload a .txt file with pet symptom descriptions", type=["txt"])
+    if uploaded_file is not None:
+        file_content = uploaded_file.read().decode("utf-8")
+        text_lines = [line.strip() for line in file_content.strip().split('\n') if line.strip()]
 
-records = []
+        if len(text_lines) == 0:
+            st.warning("The uploaded file is empty or invalid.")
+        else:
+            predictions = predict_condition(text_lines)
+            result_df = pd.DataFrame({"Input Text": text_lines, "Predicted Condition": predictions})
+            st.subheader("🗂️ Structured Table")
+            st.dataframe(result_df)
 
-if st.button("Predict Conditions"):
-    if not input_texts:
-        st.warning("Please upload a file or enter text manually.")
-    else:
-        for text in input_texts:
-            if text.strip():
-                X = vectorizer.transform([text])
-                prediction = model.predict(X)[0]
-                record = {
-                    "Text": text,
-                    "Predicted Condition": prediction,
-                    "Record Type": "User Input" if text == user_input else "File Upload"
-                }
-                records.append(record)
+            st.subheader("📊 Actionable Insights")
+            insight_df = generate_insights(result_df)
+            st.dataframe(insight_df)
 
-        if records:
-            # Convert to DataFrame
-            df = pd.DataFrame(records)
-
-            st.success("✅ Prediction Complete!")
-            st.write("### Structured Data Table")
-            st.dataframe(df)
-
-            # Download button
-            csv = df.to_csv(index=False)
-            st.download_button(
-                label="📥 Download Structured Data as CSV",
-                data=csv,
-                file_name="structured_data.csv",
-                mime="text/csv"
-            )
-
-            # Bar chart for prediction count
-            st.write("### 📊 Prediction Overview")
-            chart_data = df["Predicted Condition"].value_counts()
+            # Plot
             fig, ax = plt.subplots()
-            chart_data.plot(kind="bar", color="skyblue", ax=ax)
-            plt.xlabel("Predicted Condition")
-            plt.ylabel("Count")
-            plt.title("Distribution of Predicted Conditions")
+            ax.bar(insight_df['Condition'], insight_df['Count'], color='skyblue')
+            plt.xticks(rotation=45)
+            plt.title("Condition Frequency")
             st.pyplot(fig)
+
+            # Download
+            csv = result_df.to_csv(index=False).encode('utf-8')
+            st.download_button("Download Result CSV", data=csv, file_name="predicted_conditions.csv", mime="text/csv")
