@@ -58,6 +58,8 @@ import joblib
 import matplotlib.pyplot as plt
 from datetime import datetime
 
+st.info("✅ App loaded correctly - updated version!")
+
 # Load the model and vectorizer
 model = joblib.load("model.pkl")
 vectorizer = joblib.load("vectorizer.pkl")
